@@ -4,9 +4,12 @@ This example shows how to create a user service with ID generation.
 
 ```java
 
+    import example.user.User;
+    import example.user.UserServiceSync;
+    import example.user.UserManagerServiceSync;
+
     import com.caucho.baratine.client.BaratineClient;
-    import io.baratine.core.
-    
+
     public static void main(String []args)
       throws Exception
     {
@@ -15,7 +18,7 @@ This example shows how to create a user service with ID generation.
       UserManagerServiceSync managerService = client.lookup("/user")
                                                     .as(UserManagerServiceSync.class);
       
-      managerService.create("first0", "last0");
+      User user = managerService.create("first0", "last0");
       System.out.println(user);
       
       UserServiceSync userService = client.lookup("/user/" + user.getId())

@@ -1,14 +1,35 @@
 package example.user;
 
+import javax.inject.Inject;
+
+import io.baratine.core.Lookup;
 import io.baratine.core.Modify;
+import io.baratine.core.OnLoad;
+import io.baratine.core.OnLookup;
+import io.baratine.core.OnSave;
 import io.baratine.core.Result;
 import io.baratine.core.Service;
-import io.baratine.core.Services;
+import io.baratine.core.ServiceRef;
+import io.baratine.store.Store;
 
-@Service("public:///user")
+@Service("/_user")
 public class UserManagerServiceImpl implements UserManagerService
 {
+  @Inject @Lookup("/_user")
+  private transient ServiceRef _meRef;
+
+  @Inject @Lookup("store://_user")
+  private transient ServiceRef _storeRef;
+
   private long _count;
+
+  @OnLookup
+  public UserService onLookup(String url)
+  {
+    Store<User> userStore = _storeRef.lookup(url).as(Store.class);
+
+    return new UserServiceImpl(url, userStore);
+  }
 
   @Modify
   public void create(String firstName, String lastName,
@@ -16,22 +37,39 @@ public class UserManagerServiceImpl implements UserManagerService
   {
     long id = _count++;
 
-    UserServiceImpl user = getUserProxy("/user/" + id);
+    UserService user = _meRef.lookup("/" + id).as(UserService.class);
 
     user.create(id, firstName, lastName, result);
   }
 
   public void delete(long id, Result<Boolean> result)
   {
-    UserServiceImpl user = getUserProxy("/user/" + id);
+    UserService user = _meRef.lookup("/" + id).as(UserService.class);
 
     user.delete(result);
   }
 
-  private UserServiceImpl getUserProxy(String url)
+  @OnLoad
+  public void onLoad(Result<Boolean> result)
   {
-    UserServiceImpl user = Services.getCurrentService().lookup(url).as(UserServiceImpl.class);
+    Store<Long> store = _storeRef.as(Store.class);
 
-    return user;
+    store.get("count", count -> {
+       if (count == null) {
+         count = 0L;
+       }
+
+       _count = count;
+
+       result.complete(true);
+    });
+  }
+
+  @OnSave
+  public void onSave(Result<Boolean> result)
+  {
+    Store<Long> store = _storeRef.as(Store.class);
+
+    store.put("count", _count, Void -> result.complete(true));
   }
 }
